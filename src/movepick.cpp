@@ -82,7 +82,6 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
 
   stage = (pos.checkers() ? EVASION_TT : QSEARCH_TT) +
           !(   ttm
-            && (pos.checkers() || depth > DEPTH_QS_RECAPTURES || to_sq(ttm) == recaptureSquare)
             && pos.pseudo_legal(ttm));
 }
 
@@ -104,7 +103,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th, Depth d, const Cap
 template<GenType Type>
 void MovePicker::score() {
 
-  static_assert(Type == CAPTURES || Type == QUIETS || Type == PSEUDO_LEGAL, "Wrong type");
+  static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
   [[maybe_unused]] Bitboard threatened, threatenedByPawn, threatenedByDefender, threatenedByMinor;
   if constexpr (Type == QUIETS)
@@ -142,16 +141,17 @@ void MovePicker::score() {
                           : (pt == KNIGHT || pt == CANNON) && !(to_sq(m) & threatenedByDefender) ? 25000
                           :                                   !(to_sq(m) & threatenedByPawn)     ? 15000
                           :                                                                        0)
-                          :                                                                        0);
-
-      else // Type == PSEUDO_LEGAL
+                          :                                                                        0)
+                   +     bool(pos.check_squares(type_of(pos.moved_piece(m))) & to_sq(m)) * 16384;
+      else // Type == EVASIONS
       {
           if (pos.capture(m))
-              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))] - Value(pt);
+              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
+                       - Value(pt)
+                       + (1 << 28);
           else
-              m.value =  2 * (*mainHistory)[pos.side_to_move()][from_to(m)]
-                       + 2 * (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)]
-                       - (1 << 28);
+              m.value =  (*mainHistory)[pos.side_to_move()][from_to(m)]
+                       + (*continuationHistory[0])[pos.moved_piece(m)][to_sq(m)];
       }
   }
 }
@@ -259,9 +259,9 @@ top:
 
   case EVASION_INIT:
       cur = moves;
-      endMoves = generate<PSEUDO_LEGAL>(pos, cur);
+      endMoves = generate<EVASIONS>(pos, cur);
 
-      score<PSEUDO_LEGAL>();
+      score<EVASIONS>();
       ++stage;
       [[fallthrough]];
 

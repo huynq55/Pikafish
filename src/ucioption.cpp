@@ -58,15 +58,18 @@ void init(OptionsMap& o) {
   constexpr int MaxHashMB = Is64Bit ? 33554432 : 2048;
 
   o["Debug Log File"]        << Option("", on_logger);
-  o["Threads"]               << Option(1, 1, 512, on_threads);
+  o["Threads"]               << Option(1, 1, 1024, on_threads);
   o["Hash"]                  << Option(16, 1, MaxHashMB, on_hash_size);
   o["Clear Hash"]            << Option(on_clear_hash);
   o["Ponder"]                << Option(false);
   o["MultiPV"]               << Option(1, 1, 500);
+  o["Skill Level"]           << Option(20, 0, 20);
   o["Move Overhead"]         << Option(10, 0, 5000);
   o["Slow Mover"]            << Option(100, 10, 1000);
   o["nodestime"]             << Option(0, 0, 10000);
   o["UCI_AnalyseMode"]       << Option(false);
+  o["UCI_LimitStrength"]     << Option(false);
+  o["UCI_Elo"]               << Option(1350, 1350, 2850);
   o["UCI_ShowWDL"]           << Option(false);
   o["EvalFile"]              << Option(EvalFileDefaultName, on_eval_file);
   o["UCI_Variant"]           << Option("chess", "xiangqi", {});

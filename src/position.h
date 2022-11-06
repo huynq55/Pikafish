@@ -48,6 +48,7 @@ struct StateInfo {
   Bitboard   blockersForKing[COLOR_NB];
   Bitboard   pinners[COLOR_NB];
   Bitboard   checkSquares[PIECE_TYPE_NB];
+  bool       needSlowCheck;
   Piece      capturedPiece;
   uint16_t   chased;
   Move       move;
@@ -140,7 +141,7 @@ public:
   bool is_repeated(Value& result, int ply = 0) const;
   ChaseMap chased(Color c);
   Value material_sum() const;
-  Value material() const;
+  Value material_diff() const;
 
   // Position consistency check, for debugging
   bool pos_is_ok() const;
@@ -282,12 +283,12 @@ inline Value Position::material_sum() const {
   return st->material[WHITE] + st->material[BLACK];
 }
 
-inline Value Position::material() const {
+inline Value Position::material_diff() const {
   return st->material[sideToMove] - st->material[~sideToMove];
 }
 
 inline int Position::game_ply() const {
-    return gamePly;
+  return gamePly;
 }
 
 inline bool Position::capture(Move m) const {
@@ -346,12 +347,12 @@ inline StateInfo* Position::state() const {
 
 inline Position& Position::set(const Position& pos, StateInfo* si, Thread* th) {
 
-    set(pos.fen(), si, th);
+  set(pos.fen(), si, th);
 
-    // Special cares for bloom filter
-    std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
+  // Special cares for bloom filter
+  std::memcpy(&filter, &pos.filter, sizeof(BloomFilter));
 
-    return *this;
+  return *this;
 }
 
 } // namespace Stockfish

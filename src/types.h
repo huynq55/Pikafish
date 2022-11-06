@@ -292,12 +292,12 @@ enum Value : int {
   VALUE_MATE_IN_MAX_PLY  =  VALUE_MATE - MAX_PLY,
   VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
 
-  RookValueMg    = 1350,  RookValueEg    = 1500,
-  AdvisorValueMg = 300 ,  AdvisorValueEg = 180 ,
-  CannonValueMg  = 620 ,  CannonValueEg  = 520 ,
-  PawnValueMg    = 80  ,  PawnValueEg    = 160 ,
-  KnightValueMg  = 520 ,  KnightValueEg  = 800 ,
-  BishopValueMg  = 330 ,  BishopValueEg  = 210 ,
+  RookValueMg    = 1462,  RookValueEg    = 1268,
+  AdvisorValueMg = 189 ,  AdvisorValueEg = 156 ,
+  CannonValueMg  = 515 ,  CannonValueEg  = 674 ,
+  PawnValueMg    = 72  ,  PawnValueEg    = 135 ,
+  KnightValueMg  = 554 ,  KnightValueEg  = 744 ,
+  BishopValueMg  = 202 ,  BishopValueEg  = 173 ,
 };
 
 enum PieceType {
@@ -513,26 +513,6 @@ constexpr File file_of(Square s) {
 
 constexpr Rank rank_of(Square s) {
   return Rank(s / FILE_NB);
-}
-
-constexpr Square flip_rank(Square s) {
-  return make_square(file_of(s), Rank(RANK_9 - rank_of(s)));
-}
-
-constexpr Square flip_file(Square s) {
-  return make_square(File(FILE_I - file_of(s)), rank_of(s));
-}
-
-constexpr Square relative_square(Color c, Square s) {
-  return c == WHITE ? s : flip_rank(s);
-}
-
-constexpr Rank relative_rank(Color c, Rank r) {
-  return c == WHITE ? r : Rank(RANK_9 - r);
-}
-
-constexpr Rank relative_rank(Color c, Square s) {
-  return relative_rank(c, rank_of(s));
 }
 
 constexpr Square from_sq(Move m) {
