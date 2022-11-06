@@ -196,26 +196,28 @@ namespace {
          << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
   }
 
-  // The win rate model returns the probability of winning (in per mille units) given an
-  // eval and a game ply. It fits the LTC fishtest statistics rather accurately.
-  int win_rate_model(Value v, int ply) {
+  // The win rate model returns the probability of winning given an eval
+  // and a game ply. It fits the LTC fishtest statistics rather accurately.
+  long double win_rate_model_double(Value v, int ply) {
 
      // The model only captures up to 240 plies, so limit the input and then rescale
-     double m = std::min(240, ply) / 64.0;
+     long double m = std::min(240, ply) / 64.0;
 
      // The coefficients of a third-order polynomial fit is based on the fishtest data
      // for two parameters that need to transform eval to the argument of a logistic
      // function.
-     double as[] = { 0.50379905,  -4.12755858,  18.95487051, 152.00733652};
-     double bs[] = {-1.71790378,  10.71543602, -17.05515898,  41.15680404};
-     double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
-     double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+     long double as[] = {  7.42211754, -26.5119614,   46.99271939, 340.67524114 };
+     long double bs[] = { -0.50136481,   4.9383151,  -11.86324223,  89.56581513 };
+     long double a = (((as[0] * m + as[1]) * m + as[2]) * m) + as[3];
+     long double b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
 
-     // Transform the eval to centipawns with limited range
-     double x = std::clamp(double(100 * v) / PawnValueEg, -2000.0, 2000.0);
+     // Return the win rate
+     return 1 / (1 + std::exp((a - v) / b));
+  }
 
-     // Return the win rate in per mille units rounded to the nearest value
-     return int(0.5 + 1000 / (1 + std::exp((a - x) / b)));
+  // Return the win rate in per mille units rounded to the nearest value
+  int win_rate_model(Value v, int ply) {
+      return int(0.5 + 1000 * win_rate_model_double(v, ply));
   }
 
 } // namespace
@@ -266,6 +268,7 @@ void UCI::loop(int argc, char* argv[]) {
       else if (token == "setoption")  setoption(is);
       else if (token == "go")         go(pos, is, states);
       else if (token == "position")   position(pos, is, states);
+      else if (token == "fen" || token == "startpos") is.seekg(0), position(pos, is, states);
       else if (token == "ucinewgame") Search::clear();
       else if (token == "isready")    sync_cout << "readyok" << sync_endl;
 
@@ -284,11 +287,6 @@ void UCI::loop(int argc, char* argv[]) {
               filename = f;
           Eval::NNUE::save_eval(filename);
       }
-      else if (token == "fen" || token == "startpos")
-      {
-          is.seekg(0);
-          position(pos, is, states);
-      }
       else if (token == "--help" || token == "help" || token == "--license" || token == "license")
           sync_cout << "\nPikafish is a powerful xiangqi engine for playing and analyzing."
                        "\nIt is released as free software licensed under the GNU GPLv3 License."
@@ -303,20 +301,34 @@ void UCI::loop(int argc, char* argv[]) {
 }
 
 
+/// UCI::pawn_eval() uses the win_rate_model to convert
+/// internal score and ply to an objective pawn evaluation.
+
+int UCI::pawn_eval(Value v, int ply) {
+
+    long double wdl_w = win_rate_model_double( v, ply);
+    long double wdl_l = win_rate_model_double(-v, ply);
+    long double win_loss_rate = wdl_w - wdl_l;
+    constexpr long double mate = double(VALUE_MATE_IN_MAX_PLY - 1) / 400;
+
+    return 400 * std::clamp(std::log10((1 + win_loss_rate) / (1 - win_loss_rate)), -mate, mate) + 0.5;
+}
+
+
 /// UCI::value() converts a Value to a string by adhering to the UCI protocol specification:
 ///
 /// cp <x>    The score from the engine's point of view in centipawns.
 /// mate <y>  Mate in 'y' moves (not plies). If the engine is getting mated,
 ///           uses negative values for 'y'.
 
-string UCI::value(Value v) {
+string UCI::value(Value v, int ply) {
 
   assert(-VALUE_INFINITE < v && v < VALUE_INFINITE);
 
   stringstream ss;
 
   if (abs(v) < VALUE_MATE_IN_MAX_PLY)
-      ss << "cp " << v;
+      ss << "cp " << UCI::pawn_eval(v, ply);
   else
       ss << "mate " << (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2;
 
